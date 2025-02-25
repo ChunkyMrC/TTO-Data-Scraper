@@ -24,6 +24,10 @@ import googlesearch
 import os
 import shutil
 import glob, os
+import uuid
+import hashlib
+import string
+import random
 
 ###################### TTO USERNAME & PASSWORD ####################
 
@@ -75,7 +79,9 @@ while start_dt <= end_dt:
     start_dt += delta
 
 ####################### GET TTO DATA ##########################
+
 all_data = set()
+bet_id_set = set()
 url = "https://tilttheodds.co.uk/profile-page"
 header = {'Accept' : '*/*',
         'Accept-Language': 'en-US,en;q=0.5',
@@ -101,11 +107,20 @@ password_box.send_keys(Keys.RETURN)
 
 sleep(5)
 
+def id_generator(size = 8, chars = string.ascii_uppercase):
+    return ''.join(random.choice(chars) for _ in range(size))
+
 def get_horse_data(date):
     html_source_code = driver.execute_script("return document.body.innerHTML;")
     soup: BeautifulSoup = BeautifulSoup(html_source_code, 'html.parser')
     cards = soup.find_all("div", {"class": "card custom-card card-pointer card"})
     for card in cards:
+        while True:
+            bet_id = id_generator()
+            if bet_id not in bet_id_set:
+                break
+            else:
+                continue
         card_rows = card.find_all("div", {"class": "row"})
         for row in card_rows:
             relevant_row = row.find_all("div", {"class": "bet-card-p race-padding-lg d-none d-sm-block text-left row"})
@@ -123,7 +138,15 @@ def get_horse_data(date):
                 else:
                     win_lose = "NR"
                 bet_type = card.find_all("div", {"class": "custom-card-header card-header"})[0].text.split("~")[0].strip()
-                all_data.add((date, t, racetrack, runner, qs, odds, percentage, win_lose, bet_type))
+                placed_rejected = ""
+                if "Placed" in card.find_all("div", {"class": "custom-card-header card-header"})[0].text.split("~")[1].strip():
+                    bookie = card.find_all("div", {"class": "custom-card-header card-header"})[0].text.split("~")[1].strip().split("Placed")[1]
+                    placed_rejected = "Placed"
+                else:
+                    bookie = card.find_all("div", {"class": "custom-card-header card-header"})[0].text.split("~")[1].strip().split("Rejected")[1]
+                    placed_rejected = "Rejected"
+                bet_id_set.add(bet_id)
+                all_data.add((date, t, racetrack, runner, qs, odds, percentage, win_lose, bet_type, bookie, placed_rejected, bet_id))
 
 def click_through_pages(date):
     driver.execute_script("window.scrollTo(0, 500)")
@@ -150,4 +173,11 @@ for date in dates_to_search:
 
 driver.quit()
 
-print(all_data)
+filename_tto = 'TTO Data ' + start_dt.strftime("%d-%m-%Y") + " to " + end_dt.strftime("%d-%m-%Y") + '.csv'
+
+with open(filename_tto ,'a', newline="", encoding='utf-8') as csvfile:
+    writer = csv.writer(csvfile)
+    col_names = ("Date", "Time", "Racetrack", "Horse", "QS", "Odds", "Percentage", "W/L/NR", "Bet Type", "Bookie", "Bet Placed or Rejected", "Bet ID")
+    writer.writerow(col_names)
+    for d in all_data:   
+        writer.writerow(d)
