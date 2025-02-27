@@ -78,11 +78,14 @@ while start_dt <= end_dt:
     dates_to_search.add(start_dt)
     start_dt += delta
 
-####################### GET TTO DATA ##########################
+####################### OPEN TTO LOGIN PAGE ##########################
 
 all_data = set()
 bet_id_set = set()
 url = "https://tilttheodds.co.uk/profile-page"
+
+
+
 header = {'Accept' : '*/*',
         'Accept-Language': 'en-US,en;q=0.5',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.82',}
@@ -90,7 +93,7 @@ content = requests.get(url, headers = header)
 options = webdriver.ChromeOptions()
 options.set_capability('goog:loggingPrefs', {"performance": "ALL", "browser": "ALL"})
 options.add_argument("--start-maximized")
-driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()),options=options)
+driver = webdriver.Chrome(options=options)
 driver.set_page_load_timeout(10)
 try:
     driver.get(url)
@@ -105,7 +108,7 @@ password_box.click()
 password_box.send_keys(password)
 password_box.send_keys(Keys.RETURN)
 
-sleep(5)
+sleep(3)
 
 def id_generator(size = 8, chars = string.ascii_uppercase):
     return ''.join(random.choice(chars) for _ in range(size))
@@ -146,7 +149,9 @@ def get_horse_data(date):
                     bookie = card.find_all("div", {"class": "custom-card-header card-header"})[0].text.split("~")[1].strip().split("Rejected")[1]
                     placed_rejected = "Rejected"
                 bet_id_set.add(bet_id)
-                all_data.add((date, t, racetrack, runner, qs, odds, percentage, win_lose, bet_type, bookie, placed_rejected, bet_id))
+                winnings = card.find_all("div", {"class": "custom-card-footer row"})[0].text.split("Winnings")[1].replace(":","").replace("£","").strip()
+                stake = card.find_all("div", {"class": "custom-card-footer row"})[0].text.split("/")[0].split(":")[1].replace("£","").strip()
+                all_data.add((date, t, racetrack, runner, qs, odds, percentage, win_lose, bet_type, bookie, placed_rejected, bet_id, winnings))
 
 def click_through_pages(date):
     driver.execute_script("window.scrollTo(0, 500)")
@@ -177,7 +182,8 @@ filename_tto = 'TTO Data ' + start_dt.strftime("%d-%m-%Y") + " to " + end_dt.str
 
 with open(filename_tto ,'a', newline="", encoding='utf-8') as csvfile:
     writer = csv.writer(csvfile)
-    col_names = ("Date", "Time", "Racetrack", "Horse", "QS", "Odds", "Percentage", "W/L/NR", "Bet Type", "Bookie", "Bet Placed or Rejected", "Bet ID")
+    col_names = ("Date", "Time", "Racetrack", "Horse", "QS", "Odds", "Percentage", "W/L/NR",
+     "Bet Type", "Bookie", "Bet Placed or Rejected", "Bet ID", "Stake", "Winnings")
     writer.writerow(col_names)
     for d in all_data:   
         writer.writerow(d)
